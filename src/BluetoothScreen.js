@@ -107,9 +107,34 @@ const BluetoothScreen = () => {
 
   const Tab = createMaterialTopTabNavigator();
 
+  const checkPermission = () => {
+    PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    ).then(result => {
+      if (result) {
+        console.log('Permission is OK');
+        startScan();
+      } else {
+        PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        ]).then(res => {
+          if (res) {
+            startScan();
+            console.log('User accept');
+          } else {
+            console.log('User refuse');
+          }
+        });
+      }
+    });
+  };
+
   useEffect(() => {
+    checkPermission();
     BleManager.start({showAlert: false});
-    startScan();
     bleManagerEmitter.addListener(
       'BleManagerDiscoverPeripheral',
       handleDiscoverPeripheral,
@@ -124,25 +149,23 @@ const BluetoothScreen = () => {
       handleUpdateValueForCharacteristic,
     );
 
-    if (Platform.OS === 'android' && Platform.Version >= 23) {
-      PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-      ).then(result => {
-        if (result) {
-          console.log('Permission is OK');
-        } else {
-          PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          ).then(res => {
-            if (res) {
-              console.log('User accept');
-            } else {
-              console.log('User refuse');
-            }
-          });
-        }
-      });
-    }
+    PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    ).then(result => {
+      if (result) {
+        console.log('Permission is OK');
+      } else {
+        PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ).then(res => {
+          if (res) {
+            console.log('User accept');
+          } else {
+            console.log('User refuse');
+          }
+        });
+      }
+    });
 
     return () => {
       console.log('unmount');
