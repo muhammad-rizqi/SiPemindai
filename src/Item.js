@@ -1,17 +1,13 @@
 /* eslint-disable react-native/no-inline-styles */
 import React from 'react';
 import {View, Text, TouchableHighlight} from 'react-native';
+import {calculate} from './helper';
 
 const Item = ({item, onPress}) => {
   const color = item.connected ? '#80CBC4' : '#fff';
 
-  const calculate = rssi => {
-    const distance = Math.pow(10, (-69 - rssi) / (10 * 2));
-    return distance.toFixed(3);
-  };
-
   return (
-    <TouchableHighlight onPress={() => onPress()}>
+    <TouchableHighlight onPress={() => {}}>
       <View
         style={{
           backgroundColor: color,

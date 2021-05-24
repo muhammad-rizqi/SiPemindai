@@ -1,4 +1,3 @@
-/* eslint-disable react-native/no-inline-styles */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, {useState, useEffect} from 'react';
 import {
@@ -12,11 +11,13 @@ import {
   Platform,
   PermissionsAndroid,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
+import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 
 import BleManager from 'react-native-ble-manager';
-import Item from './Item';
+import {useDispatch} from 'react-redux';
+import DevicesScreen from './DevicesScreen';
+import LogScreen from './LogScreen';
 
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
@@ -24,19 +25,34 @@ const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 const BluetoothScreen = () => {
   const [isScanning, setIsScanning] = useState(false);
   const peripherals = new Map();
-  const [list, setList] = useState([]);
-  const [connectedList, setConnectedList] = useState([]);
+
+  const dispatch = useDispatch();
+
+  const setList = devices => {
+    dispatch({
+      type: 'CHANGE_DEVICES',
+      payload: devices,
+    });
+  };
+
+  const setLoger = log => {
+    dispatch({
+      type: 'CHANGE_LOG',
+      payload: log,
+    });
+  };
 
   useEffect(() => {
-    setTimeout(() => {
-      startScan();
-      retrieveConnected();
-    }, 3000);
+    if (!isScanning) {
+      setTimeout(() => {
+        startScan();
+      }, 10000);
+    }
   }, [isScanning]);
 
   const startScan = () => {
     if (!isScanning) {
-      BleManager.scan([], 3, true)
+      BleManager.scan([], 3, false)
         .then(_ => {
           console.log('Scanning...');
           setIsScanning(true);
@@ -48,6 +64,7 @@ const BluetoothScreen = () => {
   };
 
   const handleStopScan = () => {
+    writeLog();
     console.log('Scan is stopped');
     setIsScanning(false);
   };
@@ -72,20 +89,6 @@ const BluetoothScreen = () => {
     );
   };
 
-  const retrieveConnected = () => {
-    BleManager.getConnectedPeripherals([]).then(results => {
-      if (results.length === 0) {
-        console.log('No connected peripherals');
-      }
-      for (var i = 0; i < results.length; i++) {
-        var peripheral = results[i];
-        peripheral.connected = true;
-        peripherals.set(peripheral.id, peripheral);
-        setConnectedList(Array.from(peripherals.values()));
-      }
-    });
-  };
-
   const handleDiscoverPeripheral = peripheral => {
     console.log('Got ble peripheral', peripheral);
     if (!peripheral.name) {
@@ -95,50 +98,18 @@ const BluetoothScreen = () => {
     setList(Array.from(peripherals.values()));
   };
 
-  const testPeripheral = peripheral => {
-    if (peripheral) {
-      if (peripheral.connected) {
-        BleManager.disconnect(peripheral.id);
-      } else {
-        BleManager.connect(peripheral.id)
-          .then(() => {
-            let p = peripherals.get(peripheral.id);
-            if (p) {
-              p.connected = true;
-              peripherals.set(peripheral.id, p);
-              setList(Array.from(peripherals.values()));
-            }
-            console.log('Connected to ' + peripheral.id);
-
-            setTimeout(() => {
-              /* Test read current RSSI value */
-              BleManager.retrieveServices(peripheral.id).then(
-                peripheralData => {
-                  console.log('Retrieved peripheral services', peripheralData);
-
-                  BleManager.readRSSI(peripheral.id).then(rssi => {
-                    console.log('Retrieved actual RSSI value', rssi);
-                    let p = peripherals.get(peripheral.id);
-                    if (p) {
-                      p.rssi = rssi;
-                      peripherals.set(peripheral.id, p);
-                      setList(Array.from(peripherals.values()));
-                    }
-                  });
-                },
-              );
-            }, 900);
-          })
-          .catch(error => {
-            console.log('Connection error', error);
-          });
-      }
-    }
+  const writeLog = () => {
+    const log = {};
+    log.time = new Date();
+    log.data = Array.from(peripherals.values());
+    setLoger(log);
   };
+
+  const Tab = createMaterialTopTabNavigator();
 
   useEffect(() => {
     BleManager.start({showAlert: false});
-
+    startScan();
     bleManagerEmitter.addListener(
       'BleManagerDiscoverPeripheral',
       handleDiscoverPeripheral,
@@ -199,34 +170,17 @@ const BluetoothScreen = () => {
           <Text style={styles.h1}>SiPemindai</Text>
           {isScanning && <ActivityIndicator color="#004D40" size="large" />}
         </View>
-        <ScrollView>
-          {connectedList.length !== 0 && (
-            <View style={{marginVertical: 16}}>
-              <Text>Perangkat Tersambung</Text>
-              {connectedList.map(item => (
-                <Item
-                  key={item.id}
-                  item={item}
-                  onPress={() => testPeripheral(item)}
-                />
-              ))}
-            </View>
-          )}
-          {list.length === 0 ? (
-            <Text>Tidak Ada Perangkat</Text>
-          ) : (
-            <View style={{marginVertical: 16}}>
-              <Text>Perangkat Ditemukan</Text>
-              {list.map(item => (
-                <Item
-                  key={item.id}
-                  item={item}
-                  onPress={() => testPeripheral(item)}
-                />
-              ))}
-            </View>
-          )}
-        </ScrollView>
+        <View style={styles.body}>
+          <Tab.Navigator
+            tabBarOptions={{indicatorStyle: {backgroundColor: '#004D40'}}}>
+            <Tab.Screen
+              name="Devices"
+              options={{tabBarLabel: 'Perangkat'}}
+              component={DevicesScreen}
+            />
+            <Tab.Screen name="Log" component={LogScreen} />
+          </Tab.Navigator>
+        </View>
       </SafeAreaView>
     </>
   );
@@ -235,14 +189,13 @@ const BluetoothScreen = () => {
 const styles = StyleSheet.create({
   h1: {fontSize: 24, fontWeight: 'bold'},
   body: {
-    padding: 16,
     backgroundColor: 'white',
     flex: 1,
   },
   rowTitle: {
     justifyContent: 'space-between',
     flexDirection: 'row',
-    marginBottom: 16,
+    margin: 16,
     height: 30,
   },
 });
