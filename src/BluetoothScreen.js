@@ -8,7 +8,6 @@ import {
   StatusBar,
   NativeModules,
   NativeEventEmitter,
-  Platform,
   PermissionsAndroid,
   ActivityIndicator,
 } from 'react-native';
@@ -18,15 +17,29 @@ import BleManager from 'react-native-ble-manager';
 import {useDispatch} from 'react-redux';
 import DevicesScreen from './DevicesScreen';
 import LogScreen from './LogScreen';
+import {useSelector} from 'react-redux';
 
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
 
 const BluetoothScreen = () => {
   const [isScanning, setIsScanning] = useState(false);
-  const peripherals = new Map();
 
+  const {peripherals} = useSelector(state => state);
   const dispatch = useDispatch();
+
+  const setPeripherals = peripheral => {
+    dispatch({
+      type: 'CHANGE_PERIPHERALS',
+      payload: peripheral,
+    });
+  };
+
+  const cleanPeripherals = () => {
+    dispatch({
+      type: 'CLEAR_PERIPHERALS',
+    });
+  };
 
   const setList = devices => {
     dispatch({
@@ -43,19 +56,18 @@ const BluetoothScreen = () => {
   };
 
   useEffect(() => {
-    if (!isScanning) {
-      setTimeout(() => {
-        startScan();
-      }, 10000);
-    }
+    setTimeout(() => {
+      startScan();
+    }, 15000);
   }, [isScanning]);
 
   const startScan = () => {
     if (!isScanning) {
-      BleManager.scan([], 3, false)
+      BleManager.scan([], 5, false)
         .then(_ => {
-          console.log('Scanning...');
           setIsScanning(true);
+          console.log('Scanning...');
+          cleanPeripherals();
         })
         .catch(err => {
           console.error(err);
@@ -64,16 +76,16 @@ const BluetoothScreen = () => {
   };
 
   const handleStopScan = () => {
+    setIsScanning(false);
     writeLog();
     console.log('Scan is stopped');
-    setIsScanning(false);
   };
 
   const handleDisconnectedPeripheral = data => {
     let peripheral = peripherals.get(data.peripheral);
     if (peripheral) {
       peripheral.connected = false;
-      peripherals.set(peripheral.id, peripheral);
+      setPeripherals(peripheral);
       setList(Array.from(peripherals.values()));
     }
     console.log('Disconnected from ' + data.peripheral);
@@ -94,7 +106,7 @@ const BluetoothScreen = () => {
     if (!peripheral.name) {
       peripheral.name = 'NO NAME';
     }
-    peripherals.set(peripheral.id, peripheral);
+    setPeripherals(peripheral);
     setList(Array.from(peripherals.values()));
   };
 

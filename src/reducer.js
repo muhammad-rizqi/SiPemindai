@@ -1,5 +1,18 @@
 import {combineReducers} from 'redux';
 
+const peripherals = (state = new Map(), {type, payload}) => {
+  switch (type) {
+    case 'CHANGE_PERIPHERALS':
+      state.set(payload.id, payload);
+      return state;
+    case 'CLEAR_PERIPHERALS':
+      state.clear();
+      return state;
+    default:
+      return state;
+  }
+};
+
 const list = (state = [], {type, payload}) => {
   switch (type) {
     case 'CHANGE_DEVICES':
@@ -23,4 +36,5 @@ const loger = (state = [], {type, payload}) => {
 export default combineReducers({
   list,
   loger,
+  peripherals,
 });
